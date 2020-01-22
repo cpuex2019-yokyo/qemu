@@ -364,16 +364,8 @@ static int write_misa(CPURISCVState *env, int csrno, target_ulong val)
     }
 
     /* 'I' or 'E' must be present */
-    if (!(val & (RVI | RVE))) {
+    if (!(val & RVI)) {
         /* It is not, drop write to misa */
-        return 0;
-    }
-
-    /* 'E' excludes all other extensions */
-    if (val & RVE) {
-        /* when we support 'E' we can do "val = RVE;" however
-         * for now we just drop writes if 'E' is present.
-         */
         return 0;
     }
 
@@ -381,19 +373,7 @@ static int write_misa(CPURISCVState *env, int csrno, target_ulong val)
     val &= env->misa_mask;
 
     /* Mask extensions that are not supported by QEMU */
-    val &= (RVI | RVE | RVM | RVA | RVF | RVD | RVC | RVS | RVU);
-
-    /* 'D' depends on 'F', so clear 'D' if 'F' is not present */
-    if ((val & RVD) && !(val & RVF)) {
-        val &= ~RVD;
-    }
-
-    /* Suppress 'C' if next instruction is not aligned
-     * TODO: this should check next_pc
-     */
-    if ((val & RVC) && (GETPC() & ~3) != 0) {
-        val &= ~RVC;
-    }
+    val &= (RVI | RVM | RVA | RVS | RVU);
 
     /* misa.MXL writes are not supported by QEMU */
     val = (env->misa & MISA_MXL) | (val & ~MISA_MXL);

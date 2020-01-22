@@ -300,51 +300,6 @@ int riscv_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
     return 0;
 }
 
-static int riscv_gdb_get_fpu(CPURISCVState *env, uint8_t *mem_buf, int n)
-{
-    if (n < 32) {
-        return gdb_get_reg64(mem_buf, env->fpr[n]);
-    /* there is hole between ft11 and fflags in fpu.xml */
-    } else if (n < 36 && n > 32) {
-        target_ulong val = 0;
-        int result;
-        /*
-         * CSR_FFLAGS is at index 8 in csr_register, and gdb says it is FP
-         * register 33, so we recalculate the map index.
-         * This also works for CSR_FRM and CSR_FCSR.
-         */
-        result = riscv_csrrw_debug(env, n - 33 + csr_register_map[8], &val,
-                                   0, 0);
-        if (result == 0) {
-            return gdb_get_regl(mem_buf, val);
-        }
-    }
-    return 0;
-}
-
-static int riscv_gdb_set_fpu(CPURISCVState *env, uint8_t *mem_buf, int n)
-{
-    if (n < 32) {
-        env->fpr[n] = ldq_p(mem_buf); /* always 64-bit */
-        return sizeof(uint64_t);
-    /* there is hole between ft11 and fflags in fpu.xml */
-    } else if (n < 36 && n > 32) {
-        target_ulong val = ldtul_p(mem_buf);
-        int result;
-        /*
-         * CSR_FFLAGS is at index 8 in csr_register, and gdb says it is FP
-         * register 33, so we recalculate the map index.
-         * This also works for CSR_FRM and CSR_FCSR.
-         */
-        result = riscv_csrrw_debug(env, n - 33 + csr_register_map[8], NULL,
-                                   val, -1);
-        if (result == 0) {
-            return sizeof(target_ulong);
-        }
-    }
-    return 0;
-}
-
 static int riscv_gdb_get_csr(CPURISCVState *env, uint8_t *mem_buf, int n)
 {
     if (n < ARRAY_SIZE(csr_register_map)) {
@@ -401,25 +356,13 @@ static int riscv_gdb_set_virtual(CPURISCVState *cs, uint8_t *mem_buf, int n)
 
 void riscv_cpu_register_gdb_regs_for_features(CPUState *cs)
 {
-    RISCVCPU *cpu = RISCV_CPU(cs);
-    CPURISCVState *env = &cpu->env;
 #if defined(TARGET_RISCV32)
-    if (env->misa & RVF) {
-        gdb_register_coprocessor(cs, riscv_gdb_get_fpu, riscv_gdb_set_fpu,
-                                 36, "riscv-32bit-fpu.xml", 0);
-    }
-
     gdb_register_coprocessor(cs, riscv_gdb_get_csr, riscv_gdb_set_csr,
                              240, "riscv-32bit-csr.xml", 0);
 
     gdb_register_coprocessor(cs, riscv_gdb_get_virtual, riscv_gdb_set_virtual,
                              1, "riscv-32bit-virtual.xml", 0);
 #elif defined(TARGET_RISCV64)
-    if (env->misa & RVF) {
-        gdb_register_coprocessor(cs, riscv_gdb_get_fpu, riscv_gdb_set_fpu,
-                                 36, "riscv-64bit-fpu.xml", 0);
-    }
-
     gdb_register_coprocessor(cs, riscv_gdb_get_csr, riscv_gdb_set_csr,
                              240, "riscv-64bit-csr.xml", 0);
 

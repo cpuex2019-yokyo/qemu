@@ -18,12 +18,6 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-static bool trans_illegal(DisasContext *ctx, arg_empty *a)
-{
-    gen_exception_illegal(ctx);
-    return true;
-}
-
 static bool trans_lui(DisasContext *ctx, arg_lui *a)
 {
     if (a->rd != 0) {
@@ -57,11 +51,9 @@ static bool trans_jalr(DisasContext *ctx, arg_jalr *a)
     tcg_gen_addi_tl(cpu_pc, cpu_pc, a->imm);
     tcg_gen_andi_tl(cpu_pc, cpu_pc, (target_ulong)-2);
 
-    if (!has_ext(ctx, RVC)) {
-        misaligned = gen_new_label();
-        tcg_gen_andi_tl(t0, cpu_pc, 0x2);
-        tcg_gen_brcondi_tl(TCG_COND_NE, t0, 0x0, misaligned);
-    }
+    misaligned = gen_new_label();
+    tcg_gen_andi_tl(t0, cpu_pc, 0x2);
+    tcg_gen_brcondi_tl(TCG_COND_NE, t0, 0x0, misaligned);
 
     if (a->rd != 0) {
         tcg_gen_movi_tl(cpu_gpr[a->rd], ctx->pc_succ_insn);
@@ -91,7 +83,7 @@ static bool gen_branch(DisasContext *ctx, arg_b *a, TCGCond cond)
     gen_goto_tb(ctx, 1, ctx->pc_succ_insn);
     gen_set_label(l); /* branch taken */
 
-    if (!has_ext(ctx, RVC) && ((ctx->base.pc_next + a->imm) & 0x3)) {
+    if (((ctx->base.pc_next + a->imm) & 0x3)) {
         /* misaligned */
         gen_exception_inst_addr_mis(ctx);
     } else {
