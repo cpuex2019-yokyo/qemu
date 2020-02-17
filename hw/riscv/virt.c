@@ -61,7 +61,6 @@ static const struct MemmapEntry {
     [VIRT_CLINT] =       {  0x2000000,       0x10000 },
     [VIRT_PLIC] =        {  0xc000000,     0x4000000 },
     [VIRT_UART0] =       { 0x10000000,         0x100 },
-    [VIRT_VIRTIO] =      { 0x10001000,        0x1000 },
     [VIRT_FLASH] =       { 0x20000000,     0x4000000 },
     [VIRT_DRAM] =        { 0x80000000,           0x0 },
     [VIRT_PCIE_MMIO] =   { 0x40000000,    0x40000000 },
@@ -141,7 +140,6 @@ static void create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
     uint32_t *cells;
     char *nodename;
     uint32_t plic_phandle, phandle = 1;
-    int i;
 
     fdt = s->fdt = create_device_tree(&s->fdt_size);
     if (!fdt) {
@@ -268,19 +266,6 @@ static void create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
     plic_phandle = qemu_fdt_get_phandle(fdt, nodename);
     g_free(cells);
     g_free(nodename);
-
-    for (i = 0; i < VIRTIO_COUNT; i++) {
-        nodename = g_strdup_printf("/virtio_mmio@%lx",
-            (long)(memmap[VIRT_VIRTIO].base + i * memmap[VIRT_VIRTIO].size));
-        qemu_fdt_add_subnode(fdt, nodename);
-        qemu_fdt_setprop_string(fdt, nodename, "compatible", "virtio,mmio");
-        qemu_fdt_setprop_cells(fdt, nodename, "reg",
-            0x0, memmap[VIRT_VIRTIO].base + i * memmap[VIRT_VIRTIO].size,
-            0x0, memmap[VIRT_VIRTIO].size);
-        qemu_fdt_setprop_cell(fdt, nodename, "interrupt-parent", plic_phandle);
-        qemu_fdt_setprop_cell(fdt, nodename, "interrupts", VIRTIO_IRQ + i);
-        g_free(nodename);
-    }
 
     nodename = g_strdup_printf("/uart@%lx",
         (long)memmap[VIRT_UART0].base);
@@ -469,11 +454,6 @@ static void riscv_virt_board_init(MachineState *machine)
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
     sifive_test_create(memmap[VIRT_TEST].base);
 
-    for (i = 0; i < VIRTIO_COUNT; i++) {
-        sysbus_create_simple("virtio-mmio",
-            memmap[VIRT_VIRTIO].base + i * memmap[VIRT_VIRTIO].size,
-            qdev_get_gpio_in(DEVICE(s->plic), VIRTIO_IRQ + i));
-    }
 
     gpex_pcie_init(system_memory,
                          memmap[VIRT_PCIE_ECAM].base,
@@ -507,7 +487,7 @@ static void riscv_virt_machine_class_init(ObjectClass *oc, void *data)
 {
     MachineClass *mc = MACHINE_CLASS(oc);
 
-    mc->desc = "RISC-V VirtIO board";
+    mc->desc = "RISC-V board";
     mc->init = riscv_virt_board_init;
     mc->max_cpus = 8;
     mc->default_cpu_type = VIRT_CPU;
