@@ -58,7 +58,7 @@ enum {
 enum {
     UART0_IRQ = 10,
     VIRTIO_IRQ = 1, /* 1 to 8 */
-    VIRTIO_COUNT = 8,
+    VIRTIO_COUNT = 1,
     PCIE_IRQ = 0x20, /* 32 to 35 */
     VIRTIO_NDEV = 0x35 /* Arbitrary maximum number of interrupts */
 };
